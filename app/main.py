@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth, groups, invitations, repositories, users
+from app.api import auth, groups, invitations, messages, repositories, users
 
 app = FastAPI(title="KodeZ")
 
@@ -9,6 +9,7 @@ app.include_router(users.router)
 app.include_router(repositories.router)
 app.include_router(groups.router)
 app.include_router(invitations.router)
+app.include_router(messages.router)
 
 
 @app.get("/health")
