@@ -13,6 +13,13 @@ def _cmid() -> str:
     return str(uuid.uuid4())
 
 
+def _register_device(client) -> str:
+    device_id = str(uuid.uuid4())
+    r = client.post("/devices", json={"device_id": device_id})
+    assert r.status_code in (200, 201)
+    return device_id
+
+
 # --- authorization -------------------------------------------------------
 
 
@@ -291,7 +298,10 @@ def test_empty_message_history(owner, group):
     assert r.status_code == 200
     assert r.json() == {"messages": [], "has_more": False, "next_before_seq": None}
 
-    r2 = owner["client"].post(f"/groups/{group['id']}/sync", json={"since_seq": 0})
+    device_id = _register_device(owner["client"])
+    r2 = owner["client"].post(
+        f"/groups/{group['id']}/sync", json={"device_id": device_id, "since_seq": 0}
+    )
     assert r2.status_code == 200
     body = r2.json()
     assert body["messages"] == []
@@ -299,6 +309,7 @@ def test_empty_message_history(owner, group):
     assert body["next_seq"] == 0
     assert body["server_last_seq"] == 0
     assert body["floor_seq"] == 0
+    assert body["gap_detected"] is False
 
 
 # --- group isolation -------------------------------------------------------
@@ -338,13 +349,17 @@ def test_sync_forward_from_cursor(owner, group):
         )
         seqs.append(r.json()["seq"])
 
-    r = owner["client"].post(f"/groups/{group['id']}/sync", json={"since_seq": 1})
+    device_id = _register_device(owner["client"])
+    r = owner["client"].post(
+        f"/groups/{group['id']}/sync", json={"device_id": device_id, "since_seq": 1}
+    )
     body = r.json()
     assert [m["seq"] for m in body["messages"]] == [2, 3]
     assert body["next_seq"] == 3
     assert body["has_more"] is False
     assert body["server_last_seq"] == 3
     assert body["floor_seq"] == 1
+    assert body["gap_detected"] is False
 
 
 def test_sync_respects_limit_and_has_more(owner, group):
@@ -354,7 +369,10 @@ def test_sync_respects_limit_and_has_more(owner, group):
             json={"body": f"m{i}", "client_message_id": _cmid()},
         )
 
-    r = owner["client"].post(f"/groups/{group['id']}/sync", json={"since_seq": 0, "limit": 2})
+    device_id = _register_device(owner["client"])
+    r = owner["client"].post(
+        f"/groups/{group['id']}/sync", json={"device_id": device_id, "since_seq": 0, "limit": 2}
+    )
     body = r.json()
     assert [m["seq"] for m in body["messages"]] == [1, 2]
     assert body["has_more"] is True
@@ -362,5 +380,7 @@ def test_sync_respects_limit_and_has_more(owner, group):
 
 
 def test_sync_non_member_rejected(owner, other_user, group):
-    r = other_user["client"].post(f"/groups/{group['id']}/sync", json={"since_seq": 0})
+    r = other_user["client"].post(
+        f"/groups/{group['id']}/sync", json={"device_id": str(uuid.uuid4()), "since_seq": 0}
+    )
     assert r.status_code == 404

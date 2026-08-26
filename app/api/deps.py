@@ -1,3 +1,267 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import uuid
 from dataclasses import dataclass
 
@@ -82,34 +346,3 @@ def require_group_role(*allowed_roles: GroupRole):
         return ctx
 
     return _dependency
-
-
-_ROLE_RANK = {GroupRole.MEMBER: 0, GroupRole.ADMIN: 1, GroupRole.OWNER: 2}
-
-
-@dataclass
-class MemberManagementContext:
-    group: Group
-    actor_membership: GroupMember
-    target_membership: GroupMember
-
-
-def require_can_manage_member(
-    user_id: uuid.UUID,
-    ctx: GroupContext = Depends(get_group_and_membership),
-    db: Session = Depends(get_db),
-) -> MemberManagementContext:
-    """A caller may only act on a member strictly below their own role — this is what
-    stops an admin from removing a peer admin or (transitively) the owner."""
-    target = get_membership(db, ctx.group.id, user_id)
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
-
-    if _ROLE_RANK[ctx.membership.role] <= _ROLE_RANK[target.role]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
-        )
-
-    return MemberManagementContext(
-        group=ctx.group, actor_membership=ctx.membership, target_membership=target
-    )

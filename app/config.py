@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     github_redirect_uri: str = ""
 
+    # Relay-buffer retention (see app/core/retention.py). Configurable because
+    # both numbers are policy judgment calls, not physical constants.
+    relay_retention_days: int = 30
+    active_device_window_days: int = 90
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
